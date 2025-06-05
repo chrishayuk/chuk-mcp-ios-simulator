@@ -1,0 +1,28 @@
+{
+  "fetch_time": "2025-06-05T00:45:57.402998",
+  "source": "Techmeme.com",
+  "total_stories": 3,
+  "stories": [
+    {
+      "headline": "Apple announces new iPhone features for developers",
+      "link": "https://www.apple.com/",
+      "source": "Apple",
+      "snippet": "Apple introduces new developer tools and APIs for iOS development...",
+      "timestamp": "2025-06-05T00:45:57.402797"
+    },
+    {
+      "headline": "Google releases new AI model for mobile applications",
+      "link": "https://www.google.com/",
+      "source": "Google",
+      "snippet": "The new AI model is optimized for on-device processing...",
+      "timestamp": "2025-06-05T00:45:57.402805"
+    },
+    {
+      "headline": "Microsoft announces cloud computing partnership",
+      "link": "https://www.microsoft.com/",
+      "source": "Microsoft",
+      "snippet": "The partnership aims to improve cloud infrastructure...",
+      "timestamp": "2025-06-05T00:45:57.402806"
+    }
+  ]
+}

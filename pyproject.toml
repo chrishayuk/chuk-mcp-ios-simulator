@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "chuk-mcp-ios"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "beautifulsoup4>=4.13.4",
+    "chuk-mcp-runtime>=0.3",
+    "requests>=2.32.3",
+]
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.packages.find]
+where = ["src"]  # Change from "." to "src"
+include = ["chuk_mcp_iosy*"]
+
+[project.scripts]
+chuk-mcp-ios = "chuk_mcp_ios.main:main"

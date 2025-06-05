@@ -1,0 +1,77 @@
+{
+  "fetch_time": "2025-06-05T00:48:02.282025",
+  "source": "Techmeme.com",
+  "total_stories": 10,
+  "stories": [
+    {
+      "headline": "Reddit sues Anthropic, alleging it accessed Reddit 100K+ times after saying it had stopped; Reddit has reached formal licensing deals with OpenAI and Google",
+      "link": "https://www.wsj.com/tech/ai/reddit-lawsuit-anthropic-ai-3b9624dd?st=RG6AF6&reflink=desktopwebshare_permalink",
+      "source": "Meghan Bobrowsky /Wall Street Journal:",
+      "snippet": "Reddit sues Anthropic, alleging it accessed Reddit 100K+ times after saying it had stopped; Reddit has reached formal licensing deals with OpenAI and Google",
+      "timestamp": "2025-06-05T00:48:02.280384"
+    },
+    {
+      "headline": "OpenAI rolls out connectors for services like Dropbox and OneDrive for ChatGPT Team, Enterprise, and Edu users; MCP support is coming to Pro, Team, Enterprise",
+      "link": "https://techcrunch.com/2025/06/04/chatgpt-introduces-meeting-recording-and-connectors-for-google-drive-box-and-more/",
+      "source": "Ivan Mehta /TechCrunch:",
+      "snippet": "OpenAI rolls out connectors for services like Dropbox and OneDrive for ChatGPT Team, Enterprise, and Edu users; MCP support is coming to Pro, Team, Enterprise",
+      "timestamp": "2025-06-05T00:48:02.280545"
+    },
+    {
+      "headline": "OpenAI says it has 3M \u201cpaying business users\u201d, up from 2M in February; ChatGPT Team users can now use a \u201crecord mode\u201d for taking notes during meetings",
+      "link": "https://www.theverge.com/news/679580/chatgpt-google-drive-dropbox-meeting-notes",
+      "source": "Hayden Field /The Verge:",
+      "snippet": "OpenAI says it has 3M \u201cpaying business users\u201d, up from 2M in February; ChatGPT Team users can now use a \u201crecord mode\u201d for taking notes during meetings",
+      "timestamp": "2025-06-05T00:48:02.280633"
+    },
+    {
+      "headline": "The IRS open sourced most of its Direct File tax software on GitHub last week, fulfilling a legal requirement under the SHARE IT Act, despite Intuit pressure",
+      "link": "https://www.404media.co/directfile-open-source-irs-tax-filing-software-turbotax-is-trying-to-kil/",
+      "source": "Jason Koebler /404 Media:",
+      "snippet": "The IRS open sourced most of its Direct File tax software on GitHub last week, fulfilling a legal requirement under the SHARE IT Act, despite Intuit pressure",
+      "timestamp": "2025-06-05T00:48:02.280756"
+    },
+    {
+      "headline": "Epic v. Apple: a US appeals court rejects Apple's request to pause key parts of a federal judge's order requiring it to open the App Store to more competition",
+      "link": "https://www.reuters.com/sustainability/boards-policy-regulation/apple-loses-bid-pause-app-store-reform-order-epic-games-case-2025-06-04/",
+      "source": "Mike Scarcella /Reuters:",
+      "snippet": "Epic v. Apple: a US appeals court rejects Apple's request to pause key parts of a federal judge's order requiring it to open the App Store to more competition",
+      "timestamp": "2025-06-05T00:48:02.280898"
+    },
+    {
+      "headline": "Sources: Apple may announce new features for AirPods at WWDC, including iPhone camera control, new head gestures, and sleep detection for pausing playback",
+      "link": "https://9to5mac.com/2025/06/04/exclusive-airpods-ios-26-wwdc-features/",
+      "source": "Marcus Mendes /9to5Mac:",
+      "snippet": "Sources: Apple may announce new features for AirPods at WWDC, including iPhone camera control, new head gestures, and sleep detection for pausing playback",
+      "timestamp": "2025-06-05T00:48:02.280978"
+    },
+    {
+      "headline": "Google pauses the rollout of Google Photos' AI-powered Ask Photos feature due to issues with latency, quality, and UX, per a Google product manager's post on X",
+      "link": "https://www.theverge.com/news/678858/google-photos-ask-photos-ai-search-rollout-pause",
+      "source": "Hayden Field /The Verge:",
+      "snippet": "Google pauses the rollout of Google Photos' AI-powered Ask Photos feature due to issues with latency, quality, and UX, per a Google product manager's post on X",
+      "timestamp": "2025-06-05T00:48:02.281121"
+    },
+    {
+      "headline": "The US DOJ seized ~145 domains and crypto linked to BidenCash, a dark web market that made $17M+ in revenue since 2022 by selling stolen credit cards and more",
+      "link": "https://www.bleepingcomputer.com/news/security/bidencash-carding-market-domains-seized-in-international-operation/",
+      "source": "Ionut Ilascu /BleepingComputer:",
+      "snippet": "The US DOJ seized ~145 domains and crypto linked to BidenCash, a dark web market that made $17M+ in revenue since 2022 by selling stolen credit cards and more",
+      "timestamp": "2025-06-05T00:48:02.281208"
+    },
+    {
+      "headline": "Sources: Apple Intelligence's China rollout with Alibaba is delayed by Chinese regulators amid US trade war; the country approved 300+ domestic AI models so far",
+      "link": "https://t.co/y2F8lsAMK9",
+      "source": "Financial Times:",
+      "snippet": "Sources: Apple Intelligence's China rollout with Alibaba is delayed by Chinese regulators amid US trade war; the country approved 300+ domestic AI models so far",
+      "timestamp": "2025-06-05T00:48:02.281312"
+    },
+    {
+      "headline": "Photos and partial footage of an FSD-enabled Tesla sideswiping a parked SUV and hitting a woman in November 2023 show FSD's limits; the NHTSA is investigating",
+      "link": "https://www.bloomberg.com/features/2025-tesla-full-self-driving-crash/?accessToken=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzb3VyY2UiOiJTdWJzY3JpYmVyR2lmdGVkQXJ0aWNsZSIsImlhdCI6MTc0OTAzMjE0MywiZXhwIjoxNzQ5NjM2OTQzLCJhcnRpY2xlSWQiOiJTWEJUNTVEV1JHRzAwMCIsImJjb25uZWN0SWQiOiIwQzg4NkY0NTI0NzY0RUE0OEY2QTk4RTk1NDc5RTI2NSJ9.57imSu6Ln6hmTqbKaNiCD7l2SRTrpBF3G5VZFkonOkY",
+      "source": "Bloomberg:",
+      "snippet": "Photos and partial footage of an FSD-enabled Tesla sideswiping a parked SUV and hitting a woman in November 2023 show FSD's limits; the NHTSA is investigating",
+      "timestamp": "2025-06-05T00:48:02.281466"
+    }
+  ]
+}

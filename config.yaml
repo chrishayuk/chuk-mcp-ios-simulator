@@ -1,0 +1,15 @@
+# CHUK MCP Perplexity Server Configuration
+host:
+  name: "chuk-mcp-ios"
+  log_level: "INFO"
+
+server:
+  type: "stdio"  # Options: stdio, websocket
+
+mcp_servers:
+  ios_server:
+    enabled: true
+    location: "."
+    tools:
+      enabled: true
+      module: "chuk_mcp_ios.tools"
