@@ -11,6 +11,7 @@ requires-python = ">=3.11"
 dependencies = [
     "beautifulsoup4>=4.13.4",
     "chuk-mcp-runtime>=0.3",
+    "pydantic>=2.11.5",
     "requests>=2.32.3",
 ]
 
