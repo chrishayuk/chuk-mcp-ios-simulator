@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Fixed Fully Automated iOS Simulator E2E Demo
+Fully Automated iOS Simulator E2E Demo
 
 Runs completely without user interaction, demonstrating all major simulator capabilities.
 Fixed to eliminate all errors and warnings.

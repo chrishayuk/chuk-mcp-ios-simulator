@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# test_simulator.py
+# examples/test_simulator.py
 """
 Simple test script to verify simulator control is working
 """
