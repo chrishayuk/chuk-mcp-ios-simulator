@@ -65,7 +65,8 @@ class CommandExecutor:
         self.idb_path = "idb"
         self.devicectl_path = "xcrun devicectl"
     
-    def run_command(self, command: str, timeout: Optional[int] = None) -> subprocess.CompletedProcess:
+    def run_command(self, command: str, timeout: Optional[int] = None, 
+                   show_errors: bool = True) -> subprocess.CompletedProcess:
         """Execute a shell command and return the result."""
         try:
             result = subprocess.run(
@@ -78,11 +79,17 @@ class CommandExecutor:
             )
             return result
         except subprocess.CalledProcessError as e:
-            print(f"Error executing command: {command}")
-            print(f"Error: {e.stderr}")
+            if show_errors:
+                print(f"Error executing command: {command}")
+                print(f"Error: {e.stderr}")
             raise e
         except subprocess.TimeoutExpired as e:
-            print(f"Command timed out: {command}")
+            if show_errors:
+                print(f"Command timed out: {command}")
+            raise e
+        except FileNotFoundError as e:
+            if show_errors:
+                print(f"Command not found: {command}")
             raise e
 
 # Abstract Interfaces
@@ -209,37 +216,156 @@ def detect_available_tools() -> Dict[str, bool]:
         'instruments': False
     }
     
-    executor = CommandExecutor()
-    
-    # Check simctl
+    # Check simctl (most important)
     try:
-        executor.run_command("xcrun simctl help", timeout=5)
+        result = subprocess.run(
+            ["xcrun", "simctl", "help"], 
+            capture_output=True, 
+            text=True, 
+            timeout=5,
+            check=True
+        )
         tools['simctl'] = True
-    except:
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired, FileNotFoundError):
         pass
     
-    # Check idb
+    # Check idb (optional)
     try:
-        executor.run_command("idb --version", timeout=5)
+        result = subprocess.run(
+            ["idb", "list-targets"], 
+            capture_output=True, 
+            text=True, 
+            timeout=5,
+            check=True
+        )
         tools['idb'] = True
-    except:
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired, FileNotFoundError):
         pass
     
-    # Check devicectl
+    # Check devicectl (Xcode 15+) - Use simpler command that doesn't cause errors
     try:
-        executor.run_command("xcrun devicectl --version", timeout=5)
+        result = subprocess.run(
+            ["xcrun", "devicectl", "list", "devices"], 
+            capture_output=True, 
+            text=True, 
+            timeout=5,
+            check=True
+        )
         tools['devicectl'] = True
-    except:
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired, FileNotFoundError):
         pass
     
-    # Check instruments
+    # Check instruments (legacy)
     try:
-        executor.run_command("instruments -v", timeout=5)
+        result = subprocess.run(
+            ["instruments", "-v"], 
+            capture_output=True, 
+            text=True, 
+            timeout=5,
+            check=True
+        )
         tools['instruments'] = True
-    except:
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired, FileNotFoundError):
         pass
     
     return tools
+
+def check_ios_development_setup() -> Dict[str, any]:
+    """Check the overall iOS development setup."""
+    setup_info = {
+        'xcode_installed': False,
+        'command_line_tools': False,
+        'simulators_available': False,
+        'simulator_app_found': False,
+        'available_tools': {},
+        'simulator_count': 0,
+        'recommendations': []
+    }
+    
+    # Check Xcode Command Line Tools
+    try:
+        result = subprocess.run(
+            ["xcode-select", "-p"], 
+            capture_output=True, 
+            text=True, 
+            timeout=5,
+            check=True
+        )
+        setup_info['command_line_tools'] = True
+        
+        # Check if full Xcode is installed
+        xcode_path = result.stdout.strip()
+        if '/Applications/Xcode.app' in xcode_path:
+            setup_info['xcode_installed'] = True
+    except:
+        setup_info['recommendations'].append(
+            "Install Xcode Command Line Tools: xcode-select --install"
+        )
+    
+    # Check Simulator app
+    import os
+    sim_paths = [
+        "/Applications/Xcode.app/Contents/Developer/Applications/Simulator.app",
+        "/System/Applications/Simulator.app"
+    ]
+    
+    for path in sim_paths:
+        if os.path.exists(path):
+            setup_info['simulator_app_found'] = True
+            break
+    
+    # Detect available tools
+    setup_info['available_tools'] = detect_available_tools()
+    
+    # Check if simulators are available
+    if setup_info['available_tools']['simctl']:
+        try:
+            result = subprocess.run(
+                ["xcrun", "simctl", "list", "devices", "-j"],
+                capture_output=True,
+                text=True,
+                timeout=10,
+                check=True
+            )
+            import json
+            data = json.loads(result.stdout)
+            
+            # Count available iOS simulators
+            simulator_count = 0
+            for runtime, devices in data['devices'].items():
+                if 'iOS' in runtime:
+                    for device in devices:
+                        if device.get('isAvailable', True):
+                            simulator_count += 1
+            
+            setup_info['simulators_available'] = simulator_count > 0
+            setup_info['simulator_count'] = simulator_count
+            
+        except:
+            pass
+    
+    # Generate recommendations
+    if not setup_info['command_line_tools']:
+        setup_info['recommendations'].append(
+            "Install Xcode Command Line Tools: xcode-select --install"
+        )
+    
+    if not setup_info['xcode_installed']:
+        setup_info['recommendations'].append(
+            "Install full Xcode from App Store for best simulator support"
+        )
+    
+    if not setup_info['simulators_available']:
+        setup_info['recommendations'].append(
+            "Download iOS Simulator runtimes in Xcode > Settings > Platforms"
+        )
+    
+    if not setup_info['available_tools']['idb']:
+        setup_info['recommendations'].append(
+            "Optional: Install idb for real device support: brew install idb-companion"
+        )
+    
+    return setup_info
 
 def get_ios_version_from_runtime(runtime_name: str) -> str:
     """Extract iOS version from runtime name."""

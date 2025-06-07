@@ -402,7 +402,7 @@ class RealDeviceManager(CommandExecutor):
     def _discover_via_idb(self, devices: Dict[str, RealDevice]) -> None:
         """Discover devices using idb."""
         try:
-            result = self.run_command(f"{self.idb_path} list-targets --json")
+            result = self.run_command(f"{self.idb_path} list-targets --json", show_errors=False)
             targets = json.loads(result.stdout)
             
             for target in targets:
@@ -420,12 +420,14 @@ class RealDeviceManager(CommandExecutor):
                             trusted=True  # Assume trusted if visible to idb
                         )
         except Exception as e:
-            print(f"Warning: idb discovery failed: {e}")
+            # Silent failure - don't print warning during discovery
+            pass
     
     def _discover_via_devicectl(self, devices: Dict[str, RealDevice]) -> None:
         """Discover devices using devicectl (Xcode 15+)."""
         try:
-            result = self.run_command(f"{self.devicectl_path} list devices --json")
+            # Fix: Use --json-output instead of --json
+            result = self.run_command(f"{self.devicectl_path} list devices --json-output /dev/stdout", show_errors=False)
             data = json.loads(result.stdout)
             
             for device_data in data.get('result', {}).get('devices', []):
@@ -447,12 +449,13 @@ class RealDeviceManager(CommandExecutor):
                         paired=props.get('isPaired', False)
                     )
         except Exception as e:
-            print(f"Warning: devicectl discovery failed: {e}")
+            # Silent failure - don't print warning during discovery
+            pass
     
     def _discover_via_instruments(self, devices: Dict[str, RealDevice]) -> None:
         """Discover devices using instruments (legacy)."""
         try:
-            result = self.run_command("instruments -s devices")
+            result = self.run_command("instruments -s devices", show_errors=False)
             lines = result.stdout.split('\n')
             
             for line in lines:
@@ -476,7 +479,8 @@ class RealDeviceManager(CommandExecutor):
                             trusted=True
                         )
         except Exception as e:
-            print(f"Warning: instruments discovery failed: {e}")
+            # Silent failure - don't print warning during discovery
+            pass
     
     def _connect_wifi_device(self, udid: str, timeout: int) -> None:
         """Connect to a WiFi device."""

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# chuk_mcp_ios/core/base_manager.py
+# chuk_mcp_ios/core/device_manager.py
 """
 Unified device manager that handles both simulators and real iOS devices.
 """
@@ -60,24 +60,32 @@ class UnifiedDeviceManager(CommandExecutor, DeviceControllerInterface):
         if self.simulator_manager:
             try:
                 simulators = self.simulator_manager.list_simulators()
-                all_devices.extend(simulators)
+                # Fix: Convert SimulatorDevice to DeviceInfo properly
+                for sim in simulators:
+                    device_info = sim.to_device_info()
+                    all_devices.append(device_info)
             except Exception as e:
-                print(f"Warning: Could not discover simulators: {e}")
+                # Silent failure during discovery
+                pass
         
         # Discover real devices
         if self.real_device_manager:
             try:
                 real_devices = self.real_device_manager.list_devices()
-                all_devices.extend(real_devices)
+                # Fix: Convert RealDevice to DeviceInfo properly  
+                for device in real_devices:
+                    device_info = device.to_device_info()
+                    all_devices.append(device_info)
             except Exception as e:
-                print(f"Warning: Could not discover real devices: {e}")
+                # Silent failure during discovery
+                pass
         
         # Update cache
         self._device_cache = {'all_devices': all_devices}
         self._last_cache_time = current_time
         
         return all_devices
-    
+
     def get_device(self, udid: str) -> Optional[DeviceInfo]:
         """Get device by UDID."""
         devices = self.discover_all_devices()
