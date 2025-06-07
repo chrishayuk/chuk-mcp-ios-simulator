@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # src/chuk_mcp_ios/mcp/models.py
 """
-Pydantic models for iOS Simulator MCP server - comprehensive iOS automation.
+Pydantic models for iOS Device Control MCP server - comprehensive iOS automation.
 """
 
 from pydantic import BaseModel, Field
@@ -13,10 +13,12 @@ from datetime import datetime
 # ═══════════════════════════════════════════════════════════════════════════
 
 class CreateSessionInput(BaseModel):
-    """Create iOS simulator session."""
+    """Create iOS device session."""
     device_name: Optional[str] = Field(None, description="Device name (e.g., 'iPhone 15')")
+    device_udid: Optional[str] = Field(None, description="Specific device UDID")
+    device_type: Optional[str] = Field(None, description="Device type: 'simulator' or 'real_device'")
     platform_version: Optional[str] = Field(None, description="iOS version (e.g., '17.2')")
-    autoboot: bool = Field(True, description="Auto-boot simulator")
+    autoboot: bool = Field(True, description="Auto-boot simulator/connect device")
     session_name: Optional[str] = Field(None, description="Custom session name")
 
 class CreateSessionResult(BaseModel):
@@ -24,6 +26,7 @@ class CreateSessionResult(BaseModel):
     session_id: str = Field(..., description="Created session ID")
     device_name: str = Field(..., description="Device name")
     udid: str = Field(..., description="Device UDID")
+    device_type: str = Field(..., description="Device type")
     platform_version: str = Field(..., description="iOS version")
     state: str = Field(..., description="Device state")
 
@@ -32,6 +35,7 @@ class SessionInfoResult(BaseModel):
     session_id: str = Field(..., description="Session ID")
     device_name: str = Field(..., description="Device name")
     udid: str = Field(..., description="Device UDID") 
+    device_type: str = Field(..., description="Device type")
     state: str = Field(..., description="Device state")
     platform_version: str = Field(..., description="iOS version")
     created_at: str = Field(..., description="Creation timestamp")
@@ -50,17 +54,19 @@ class DeviceInfo(BaseModel):
     """Device information."""
     udid: str = Field(..., description="Device UDID")
     name: str = Field(..., description="Device name")
-    state: str = Field(..., description="Device state (Booted/Shutdown)")
+    state: str = Field(..., description="Device state (booted/shutdown/connected/disconnected)")
     device_type: str = Field(..., description="Device type (simulator/real_device)")
     os_version: str = Field(..., description="iOS version")
     model: str = Field(..., description="Device model")
+    connection_type: str = Field(..., description="Connection type (simulator/usb/wifi)")
     is_available: bool = Field(..., description="Availability status")
 
 class ListDevicesResult(BaseModel):
     """Available devices result."""
-    devices: List[DeviceInfo] = Field(..., description="Available simulators")
+    devices: List[DeviceInfo] = Field(..., description="Available devices")
     total_count: int = Field(..., description="Total device count")
-    booted_count: int = Field(..., description="Booted device count")
+    simulators: int = Field(..., description="Simulator count")
+    real_devices: int = Field(..., description="Real device count")
     available_count: int = Field(..., description="Available device count")
 
 class BootDeviceInput(BaseModel):
@@ -83,6 +89,7 @@ class InstallAppInput(BaseModel):
     session_id: str = Field(..., description="Session ID")
     app_path: str = Field(..., description="Path to .app bundle or .ipa file")
     force_reinstall: bool = Field(False, description="Uninstall before installing")
+    launch_after_install: bool = Field(False, description="Launch app after installation")
 
 class LaunchAppInput(BaseModel):
     """Launch app input."""

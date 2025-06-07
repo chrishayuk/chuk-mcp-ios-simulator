@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # src/chuk_mcp_ios/mcp/tools.py
 """
-Comprehensive iOS Simulator MCP tools - pure iOS automation focus.
+Comprehensive iOS Device Control MCP tools - unified iOS automation.
 """
 
 import os
@@ -9,34 +9,22 @@ import asyncio
 from typing import Dict, List, Any, Optional
 from datetime import datetime
 from pathlib import Path
-
 from pydantic import ValidationError
 
-# Import from your MCP runtime
-try:
-    from chuk_mcp_runtime.common.mcp_tool_decorator import mcp_tool
-except ImportError:
-    # Fallback decorator for testing
-    def mcp_tool(name, description, timeout=30):
-        def decorator(func):
-            func._mcp_tool = True
-            func._name = name
-            func._description = description
-            func._timeout = timeout
-            return func
-        return decorator
+# chuk runtime
+from chuk_mcp_runtime.common.mcp_tool_decorator import mcp_tool
 
-# Import models
+# models
 from .models import *
 
-# Import iOS simulator controllers
-from .core.session_manager import UnifiedSessionManager
-from .core.device_manager import UnifiedDeviceManager
-from .core.app_manager import UnifiedAppManager
-from .core.ui_controller import UnifiedUIController
-from .core.media_manager import UnifiedMediaManager
-from .core.utilities_manager import UnifiedUtilitiesManager
-from .core.logger_manager import UnifiedLoggerManager
+# Import iOS control managers - Updated imports
+from chuk_mcp_ios.core.device_manager import UnifiedDeviceManager
+from chuk_mcp_ios.core.session_manager import UnifiedSessionManager, SessionConfig
+from chuk_mcp_ios.core.app_manager import UnifiedAppManager, AppInstallConfig
+from chuk_mcp_ios.core.ui_controller import UnifiedUIController
+from chuk_mcp_ios.core.media_manager import UnifiedMediaManager
+from chuk_mcp_ios.core.utilities_manager import UnifiedUtilitiesManager
+from chuk_mcp_ios.core.logger_manager import UnifiedLoggerManager, LogFilter
 
 # Global manager instances
 _session_manager: Optional[UnifiedSessionManager] = None
@@ -112,25 +100,35 @@ async def run_sync(func, *args, **kwargs):
 
 @mcp_tool(
     name="ios_create_session",
-    description="Create new iOS simulator session with automatic device selection",
-    timeout=30
+    description="Create new iOS device session with automatic device selection",
+    timeout=60
 )
 async def ios_create_session(
     device_name: Optional[str] = None,
+    device_udid: Optional[str] = None,
+    device_type: Optional[str] = None,
     platform_version: Optional[str] = None,
     autoboot: bool = True,
     session_name: Optional[str] = None
 ) -> Dict:
-    """Create iOS simulator session."""
+    """Create iOS device session."""
     try:
-        from .core.session_manager import SessionConfig
+        from ..core.base import DeviceType as CoreDeviceType
         
         config = SessionConfig(
             device_name=device_name,
+            device_udid=device_udid,
             platform_version=platform_version,
             autoboot=autoboot,
             session_name=session_name
         )
+        
+        # Set device type if specified
+        if device_type:
+            if device_type == "simulator":
+                config.device_type = CoreDeviceType.SIMULATOR
+            elif device_type == "real_device":
+                config.device_type = CoreDeviceType.REAL_DEVICE
         
         session_manager = get_session_manager()
         session_id = await run_sync(session_manager.create_session, config)
@@ -142,7 +140,8 @@ async def ios_create_session(
             session_id=session_id,
             device_name=info['device_name'],
             udid=info['device_udid'],
-            platform_version=info['os_version'],
+            device_type=info['device_type'],
+            platform_version=info.get('os_version', 'Unknown'),
             state=info['current_state']
         ).model_dump()
     except Exception as e:
@@ -150,7 +149,7 @@ async def ios_create_session(
 
 @mcp_tool(
     name="ios_list_sessions",
-    description="List all active iOS simulator sessions",
+    description="List all active iOS device sessions",
     timeout=10
 )
 async def ios_list_sessions() -> Dict:
@@ -167,8 +166,9 @@ async def ios_list_sessions() -> Dict:
                     session_id=session_id,
                     device_name=info['device_name'],
                     udid=info['device_udid'],
+                    device_type=info['device_type'],
                     state=info['current_state'],
-                    platform_version=info['os_version'],
+                    platform_version=info.get('os_version', 'Unknown'),
                     created_at=info['created_at'],
                     is_available=info['is_available']
                 ))
@@ -184,7 +184,7 @@ async def ios_list_sessions() -> Dict:
 
 @mcp_tool(
     name="ios_terminate_session",
-    description="Terminate an iOS simulator session",
+    description="Terminate an iOS device session",
     timeout=15
 )
 async def ios_terminate_session(session_id: str) -> Dict:
@@ -199,13 +199,45 @@ async def ios_terminate_session(session_id: str) -> Dict:
     except Exception as e:
         return ErrorResult(error=str(e)).model_dump()
 
+@mcp_tool(
+    name="ios_create_automation_session", 
+    description="Create optimized session for automation with best available device",
+    timeout=60
+)
+async def ios_create_automation_session(
+    device_name: Optional[str] = None,
+    device_type: Optional[str] = None
+) -> Dict:
+    """Create automation session."""
+    try:
+        session_manager = get_session_manager()
+        config = {'device_name': device_name} if device_name else {}
+        if device_type:
+            config['device_type'] = device_type
+            
+        session_id = await run_sync(session_manager.create_automation_session, config)
+        
+        # Get session info
+        info = await run_sync(session_manager.get_session_info, session_id)
+        
+        return CreateSessionResult(
+            session_id=session_id,
+            device_name=info['device_name'],
+            udid=info['device_udid'],
+            device_type=info['device_type'],
+            platform_version=info.get('os_version', 'Unknown'),
+            state=info['current_state']
+        ).model_dump()
+    except Exception as e:
+        return ErrorResult(error=str(e)).model_dump()
+
 # ═══════════════════════════════════════════════════════════════════════════
 # DEVICE MANAGEMENT
 # ═══════════════════════════════════════════════════════════════════════════
 
 @mcp_tool(
     name="ios_list_devices",
-    description="List all available iOS simulators",
+    description="List all available iOS devices (simulators and real devices)",
     timeout=15
 )
 async def ios_list_devices() -> Dict:
@@ -215,7 +247,8 @@ async def ios_list_devices() -> Dict:
         devices = await run_sync(device_manager.discover_all_devices)
         
         device_list = []
-        booted_count = 0
+        simulators = 0
+        real_devices = 0
         available_count = 0
         
         for device in devices:
@@ -226,19 +259,24 @@ async def ios_list_devices() -> Dict:
                 device_type=device.device_type.value,
                 os_version=device.os_version,
                 model=device.model,
+                connection_type=device.connection_type,
                 is_available=device.is_available
             )
             device_list.append(device_info)
             
-            if device.state.value == 'booted':
-                booted_count += 1
+            if device.device_type.value == 'simulator':
+                simulators += 1
+            else:
+                real_devices += 1
+                
             if device.is_available:
                 available_count += 1
         
         return ListDevicesResult(
             devices=device_list,
             total_count=len(device_list),
-            booted_count=booted_count,
+            simulators=simulators,
+            real_devices=real_devices,
             available_count=available_count
         ).model_dump()
     except Exception as e:
@@ -246,7 +284,7 @@ async def ios_list_devices() -> Dict:
 
 @mcp_tool(
     name="ios_boot_device",
-    description="Boot an iOS simulator by UDID",
+    description="Boot an iOS simulator or connect to real device by UDID",
     timeout=60
 )
 async def ios_boot_device(udid: str, timeout: int = 60) -> Dict:
@@ -265,6 +303,7 @@ async def ios_boot_device(udid: str, timeout: int = 60) -> Dict:
                 device_type=device.device_type.value,
                 os_version=device.os_version,
                 model=device.model,
+                connection_type=device.connection_type,
                 is_available=device.is_available
             )
         else:
@@ -272,7 +311,7 @@ async def ios_boot_device(udid: str, timeout: int = 60) -> Dict:
         
         return DeviceOperationResult(
             success=True,
-            message=f"Device {udid} booted successfully",
+            message=f"Device {udid} booted/connected successfully",
             device_info=device_info
         ).model_dump()
     except Exception as e:
@@ -280,7 +319,7 @@ async def ios_boot_device(udid: str, timeout: int = 60) -> Dict:
 
 @mcp_tool(
     name="ios_shutdown_device",
-    description="Shutdown an iOS simulator",
+    description="Shutdown an iOS simulator (real devices cannot be shutdown programmatically)",
     timeout=30
 )
 async def ios_shutdown_device(udid: str) -> Dict:
@@ -302,19 +341,21 @@ async def ios_shutdown_device(udid: str) -> Dict:
 
 @mcp_tool(
     name="ios_install_app",
-    description="Install an app on iOS simulator",
+    description="Install an app on iOS device (.app bundle or .ipa file)",
     timeout=120
 )
 async def ios_install_app(
     session_id: str,
     app_path: str,
-    force_reinstall: bool = False
+    force_reinstall: bool = False,
+    launch_after_install: bool = False
 ) -> Dict:
     """Install app."""
     try:
-        from .core.app_manager import AppInstallConfig
-        
-        config = AppInstallConfig(force_reinstall=force_reinstall)
+        config = AppInstallConfig(
+            force_reinstall=force_reinstall,
+            launch_after_install=launch_after_install
+        )
         
         app_manager = get_app_manager()
         app_info = await run_sync(app_manager.install_app, session_id, app_path, config)
@@ -334,7 +375,7 @@ async def ios_install_app(
 
 @mcp_tool(
     name="ios_launch_app",
-    description="Launch an app on iOS simulator",
+    description="Launch an app on iOS device by bundle ID",
     timeout=30
 )
 async def ios_launch_app(
@@ -374,7 +415,7 @@ async def ios_terminate_app(session_id: str, bundle_id: str) -> Dict:
 
 @mcp_tool(
     name="ios_uninstall_app",
-    description="Uninstall an app from iOS simulator",
+    description="Uninstall an app from iOS device",
     timeout=30
 )
 async def ios_uninstall_app(session_id: str, bundle_id: str) -> Dict:
@@ -392,7 +433,7 @@ async def ios_uninstall_app(session_id: str, bundle_id: str) -> Dict:
 
 @mcp_tool(
     name="ios_list_apps",
-    description="List installed apps on iOS simulator",
+    description="List installed apps on iOS device",
     timeout=20
 )
 async def ios_list_apps(session_id: str, user_apps_only: bool = True) -> Dict:
@@ -430,7 +471,7 @@ async def ios_list_apps(session_id: str, user_apps_only: bool = True) -> Dict:
 
 @mcp_tool(
     name="ios_tap",
-    description="Tap at coordinates on iOS simulator",
+    description="Tap at coordinates on iOS device screen",
     timeout=10
 )
 async def ios_tap(session_id: str, x: int, y: int) -> Dict:
@@ -489,7 +530,7 @@ async def ios_long_press(
 
 @mcp_tool(
     name="ios_swipe",
-    description="Swipe gesture on iOS simulator",
+    description="Swipe gesture on iOS device",
     timeout=10
 )
 async def ios_swipe(
@@ -547,7 +588,7 @@ async def ios_swipe_direction(
 
 @mcp_tool(
     name="ios_input_text",
-    description="Input text into focused field",
+    description="Input text into focused field on iOS device",
     timeout=15
 )
 async def ios_input_text(session_id: str, text: str) -> Dict:
@@ -583,7 +624,7 @@ async def ios_press_button(session_id: str, button: str) -> Dict:
 
 @mcp_tool(
     name="ios_screenshot",
-    description="Take screenshot of iOS simulator",
+    description="Take screenshot of iOS device",
     timeout=20
 )
 async def ios_screenshot(
@@ -616,7 +657,7 @@ async def ios_screenshot(
 
 @mcp_tool(
     name="ios_record_video",
-    description="Record video from iOS simulator",
+    description="Record video from iOS device",
     timeout=120
 )
 async def ios_record_video(
@@ -675,7 +716,7 @@ async def ios_get_screen_info(session_id: str) -> Dict:
 
 @mcp_tool(
     name="ios_set_location",
-    description="Set GPS location on iOS simulator",
+    description="Set GPS location on iOS device",
     timeout=15
 )
 async def ios_set_location(
@@ -698,7 +739,7 @@ async def ios_set_location(
 
 @mcp_tool(
     name="ios_set_location_by_name",
-    description="Set location by city/landmark name",
+    description="Set location by city/landmark name (e.g., 'San Francisco', 'Tokyo')",
     timeout=15
 )
 async def ios_set_location_by_name(session_id: str, location_name: str) -> Dict:
@@ -716,7 +757,7 @@ async def ios_set_location_by_name(session_id: str, location_name: str) -> Dict:
 
 @mcp_tool(
     name="ios_add_media",
-    description="Add photos/videos to iOS simulator",
+    description="Add photos/videos to iOS device Photos library",
     timeout=30
 )
 async def ios_add_media(session_id: str, media_paths: List[str]) -> Dict:
@@ -740,7 +781,7 @@ async def ios_add_media(session_id: str, media_paths: List[str]) -> Dict:
 
 @mcp_tool(
     name="ios_open_url",
-    description="Open URL in Safari",
+    description="Open URL in Safari on iOS device",
     timeout=20
 )
 async def ios_open_url(session_id: str, url: str) -> Dict:
@@ -758,7 +799,7 @@ async def ios_open_url(session_id: str, url: str) -> Dict:
 
 @mcp_tool(
     name="ios_get_logs",
-    description="Get system or app logs",
+    description="Get system or app logs from iOS device",
     timeout=30
 )
 async def ios_get_logs(
@@ -777,7 +818,6 @@ async def ios_get_logs(
             since_dt = datetime.fromisoformat(since)
         
         # Create filter
-        from .core.logger_manager import LogFilter
         filter = LogFilter(bundle_id=bundle_id, since=since_dt)
         
         # Get logs
@@ -826,7 +866,7 @@ async def ios_set_permission(
 
 @mcp_tool(
     name="ios_set_status_bar",
-    description="Customize status bar appearance",
+    description="Customize status bar appearance (simulators only)",
     timeout=10
 )
 async def ios_set_status_bar(
@@ -843,7 +883,7 @@ async def ios_set_status_bar(
         udid = await run_sync(session_manager.get_device_udid, session_id)
         
         # Build command
-        from .core.base import CommandExecutor
+        from ..core.base import CommandExecutor
         executor = CommandExecutor()
         
         cmd = f"xcrun simctl status_bar {udid} override"
@@ -867,7 +907,7 @@ async def ios_set_status_bar(
 
 @mcp_tool(
     name="ios_set_appearance",
-    description="Set light or dark mode",
+    description="Set light or dark mode (simulators only)",
     timeout=10
 )
 async def ios_set_appearance(session_id: str, mode: str) -> Dict:
@@ -878,7 +918,7 @@ async def ios_set_appearance(session_id: str, mode: str) -> Dict:
         udid = await run_sync(session_manager.get_device_udid, session_id)
         
         # Set appearance
-        from .core.base import CommandExecutor
+        from ..core.base import CommandExecutor
         executor = CommandExecutor()
         
         await run_sync(executor.run_command, f"xcrun simctl ui {udid} appearance {mode}")
@@ -892,7 +932,7 @@ async def ios_set_appearance(session_id: str, mode: str) -> Dict:
 
 @mcp_tool(
     name="ios_clear_keychain",
-    description="Clear simulator keychain",
+    description="Clear device keychain (simulators only)",
     timeout=15
 )
 async def ios_clear_keychain(session_id: str) -> Dict:
@@ -910,7 +950,7 @@ async def ios_clear_keychain(session_id: str) -> Dict:
 
 @mcp_tool(
     name="ios_focus_simulator",
-    description="Focus simulator window",
+    description="Focus simulator window (simulators only)",
     timeout=10
 )
 async def ios_focus_simulator(session_id: str) -> Dict:

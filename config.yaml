@@ -12,4 +12,4 @@ mcp_servers:
     location: "."
     tools:
       enabled: true
-      module: "chuk_mcp_ios.tools"
+      module: "chuk_mcp_ios.mcp.tools"
