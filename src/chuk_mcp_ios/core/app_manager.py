@@ -12,6 +12,7 @@ import plistlib
 import shutil
 import tempfile
 from pathlib import Path
+import time
 from typing import List, Optional, Dict, Any, Union
 from dataclasses import dataclass
 from datetime import datetime

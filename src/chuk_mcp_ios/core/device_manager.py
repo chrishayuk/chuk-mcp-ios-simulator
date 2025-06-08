@@ -10,12 +10,14 @@ from typing import List, Optional, Dict, Any
 from .base import (
     DeviceControllerInterface,
     CommandExecutor,
+    DeviceError,
     DeviceInfo,
     DeviceType,
     DeviceState,
     DeviceNotFoundError,
     DeviceNotAvailableError,
-    detect_available_tools
+    detect_available_tools,
+    format_device_info
 )
 
 class UnifiedDeviceManager(CommandExecutor, DeviceControllerInterface):
@@ -241,9 +243,7 @@ class UnifiedDeviceManager(CommandExecutor, DeviceControllerInterface):
                 print(f"  {status} {tool}")
     
     def _print_device(self, device: DeviceInfo, show_capabilities: bool):
-        """Print a single device."""
-        from ..base import format_device_info
-        
+        """Print a single device."""        
         print(f"  {format_device_info(device)}")
         print(f"     UDID: {device.udid}")
         print(f"     Model: {device.model}")
