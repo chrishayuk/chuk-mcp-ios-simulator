@@ -1,0 +1,184 @@
+# uvx-ios-mcp.toml
+# UVX manifest for iOS Device Control MCP Server
+# Usage: uvx --from-manifest uvx-ios-mcp.toml chuk-mcp-ios
+
+[manifest]
+name = "chuk-mcp-ios"
+description = "iOS Device Control MCP Server - Provides MCP tools for iOS automation"
+version = "0.1.0"
+
+[manifest.dependencies]
+# Main package
+chuk-mcp-ios = { git = "https://github.com/chrishayuk/chuk-mcp-ios.git", branch = "main" }
+
+# Core dependencies
+beautifulsoup4 = ">=4.13.4"
+chuk-mcp-runtime = ">=0.3"
+pillow = ">=11.2.1"
+pydantic = ">=2.11.5"
+requests = ">=2.32.3"
+
+# Optional dependencies for real device support
+fb-idb = { version = ">=1.1.7", optional = true }
+
+[manifest.scripts]
+# Primary MCP server entry point
+chuk-mcp-ios = "chuk_mcp_ios.mcp.main:main"
+
+# Alternative names
+ios-mcp-server = "chuk_mcp_ios.mcp.main:main"
+ios-mcp = "chuk_mcp_ios.mcp.main:main"
+
+[manifest.metadata]
+homepage = "https://github.com/chrishayuk/chuk-mcp-ios"
+documentation = "https://github.com/chrishayuk/chuk-mcp-ios/blob/main/README.md"
+repository = "https://github.com/chrishayuk/chuk-mcp-ios"
+keywords = ["ios", "mcp", "simulator", "automation", "testing", "server"]
+license = "MIT"
+
+[manifest.requirements]
+# Minimum Python version
+python = ">=3.11"
+
+# System requirements (informational)
+[manifest.requirements.system]
+macos = ">=12.0"  # Minimum macOS for modern Xcode
+xcode = ">=14.0"  # Minimum Xcode version
+
+[manifest.requirements.notes]
+setup = [
+    "Requires Xcode Command Line Tools: xcode-select --install",
+    "For real device support, install idb: brew install idb-companion",
+    "iOS Simulators must be downloaded via Xcode > Settings > Platforms",
+    "Configure MCP client to connect to this server via stdio or websocket"
+]
+
+[manifest.mcp]
+# MCP-specific configuration
+protocol_version = "2024-11-05"
+server_type = "stdio"  # Default to stdio, can be overridden
+
+# Available MCP tools
+[manifest.mcp.tools]
+# Session Management
+ios_create_session = "Create iOS device session with automatic device selection"
+ios_list_sessions = "List all active iOS device sessions"  
+ios_terminate_session = "Terminate an iOS device session"
+ios_create_automation_session = "Create optimized session for automation"
+
+# Device Management
+ios_list_devices = "List all available iOS devices (simulators and real devices)"
+ios_boot_device = "Boot an iOS simulator or connect to real device"
+ios_shutdown_device = "Shutdown an iOS simulator"
+
+# App Management
+ios_install_app = "Install an app on iOS device (.app bundle or .ipa file)"
+ios_launch_app = "Launch an app on iOS device by bundle ID"
+ios_terminate_app = "Terminate a running app"
+ios_uninstall_app = "Uninstall an app from iOS device"
+ios_list_apps = "List installed apps on iOS device"
+
+# UI Interactions
+ios_tap = "Tap at coordinates on iOS device screen"
+ios_double_tap = "Double tap at coordinates"
+ios_long_press = "Long press at coordinates"
+ios_swipe = "Swipe gesture on iOS device"
+ios_swipe_direction = "Swipe in a direction (up, down, left, right)"
+ios_input_text = "Input text into focused field on iOS device"
+ios_press_button = "Press hardware button (home, lock, volume_up, volume_down)"
+ios_screenshot = "Take screenshot of iOS device"
+ios_record_video = "Record video from iOS device"
+ios_get_screen_info = "Get screen dimensions and orientation"
+
+# Location & Media
+ios_set_location = "Set GPS location on iOS device"
+ios_set_location_by_name = "Set location by city/landmark name"
+ios_add_media = "Add photos/videos to iOS device Photos library"
+
+# Utilities
+ios_open_url = "Open URL in Safari on iOS device"
+ios_get_logs = "Get system or app logs from iOS device"
+ios_set_permission = "Set app permission (photos, camera, microphone, location, etc.)"
+ios_set_status_bar = "Customize status bar appearance (simulators only)"
+ios_set_appearance = "Set light or dark mode (simulators only)"
+ios_clear_keychain = "Clear device keychain (simulators only)"
+ios_focus_simulator = "Focus simulator window (simulators only)"
+
+[manifest.examples]
+# MCP server usage examples
+startup = [
+    "# Start the MCP server",
+    "uvx --from-manifest uvx-ios-mcp.toml chuk-mcp-ios",
+    "",
+    "# The server will start and listen for MCP protocol messages",
+    "# Connect your MCP client (Claude Desktop, etc.) to this server"
+]
+
+mcp_client_config = [
+    "# Add to your MCP client configuration:",
+    "# (e.g., Claude Desktop config)",
+    '  "ios-control": {',
+    '    "command": "uvx",',
+    '    "args": ["--from-manifest", "uvx-ios-mcp.toml", "chuk-mcp-ios"]',
+    '  }'
+]
+
+sample_tools = [
+    "# Once connected, you can use these MCP tools:",
+    "ios_list_devices()                    # Discover available devices",
+    "ios_create_session(device_name='iPhone 15')  # Create session", 
+    "ios_screenshot(session_id, 'output.png')     # Take screenshot",
+    "ios_launch_app(session_id, 'com.apple.mobilesafari')  # Launch Safari"
+]
+
+[manifest.config]
+# Default configuration file locations
+config_files = [
+    "./chuk-mcp-ios.toml",
+    "~/.config/chuk-mcp-ios/config.toml",
+    "/etc/chuk-mcp-ios/config.toml"
+]
+
+# Environment variables
+environment = {
+    CHUK_MCP_IOS_LOG_LEVEL = "INFO",
+    CHUK_MCP_IOS_HOST = "localhost",
+    CHUK_MCP_IOS_SESSION_DIR = "~/.ios-device-control/sessions"
+}
+
+[manifest.help]
+description = """
+iOS Device Control MCP Server provides comprehensive iOS automation capabilities
+through the Model Context Protocol (MCP).
+
+Features:
+• 25+ MCP tools for iOS device control
+• Session-based device management
+• Support for both iOS simulators and real devices
+• App lifecycle management (install, launch, terminate)
+• UI automation (tap, swipe, text input, screenshots)
+• Location simulation and media management
+• Comprehensive logging and debugging tools
+
+MCP Tools Available:
+• Session Management: create_session, list_sessions, terminate_session
+• Device Control: list_devices, boot_device, shutdown_device
+• App Management: install_app, launch_app, list_apps
+• UI Automation: tap, swipe, screenshot, input_text
+• Media & Location: set_location, add_media
+• Utilities: open_url, set_permissions, get_logs
+
+Prerequisites:
+• macOS with Xcode Command Line Tools
+• iOS Simulators (download via Xcode)
+• MCP-compatible client (Claude Desktop, etc.)
+• Optional: idb for real device support
+
+Usage:
+1. Start the server: uvx --from-manifest uvx-ios-mcp.toml chuk-mcp-ios
+2. Configure your MCP client to connect to this server
+3. Use the MCP tools through your client interface
+
+The server communicates via stdio by default, making it compatible with
+most MCP clients including Claude Desktop.
+"""

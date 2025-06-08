@@ -8,7 +8,7 @@ Provides session lifecycle management, tracking, and cleanup.
 """
 
 import time
-import uuid
+import secrets
 import json
 from typing import Dict, List, Optional, Any
 from dataclasses import dataclass, asdict
@@ -25,6 +25,24 @@ from .base import (
     DeviceNotAvailableError
 )
 from .device_manager import UnifiedDeviceManager
+
+def generate_uuid4() -> str:
+    """Generate a UUID4 string using secrets module to avoid uuid import issues."""
+    # Generate 16 random bytes
+    random_bytes = secrets.randbits(128)
+    
+    # Format as UUID4
+    # Set version (4) in bits 12-15 of time_hi_and_version
+    random_bytes &= ~(0xf000 << 48)  # Clear version bits
+    random_bytes |= (0x4000 << 48)   # Set version to 4
+    
+    # Set variant bits (10) in bits 6-7 of clock_seq_hi_and_reserved
+    random_bytes &= ~(0xc0 << 56)    # Clear variant bits
+    random_bytes |= (0x80 << 56)     # Set variant to 10
+    
+    # Format as standard UUID string
+    hex_string = f"{random_bytes:032x}"
+    return f"{hex_string[:8]}-{hex_string[8:12]}-{hex_string[12:16]}-{hex_string[16:20]}-{hex_string[20:]}"
 
 @dataclass
 class SessionConfig:
@@ -432,9 +450,10 @@ class UnifiedSessionManager:
         return device
     
     def _generate_session_id(self, custom_name: Optional[str] = None) -> str:
-        """Generate unique session ID."""
+        """Generate unique session ID using alternative UUID generation."""
         timestamp = int(time.time())
-        unique_id = str(uuid.uuid4())[:8]
+        # Use first 8 characters of our custom UUID
+        unique_id = generate_uuid4()[:8]
         
         if custom_name:
             return f"{custom_name}_{timestamp}_{unique_id}"

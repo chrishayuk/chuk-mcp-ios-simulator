@@ -1,0 +1,127 @@
+# uvx-ios-cli.toml
+# UVX manifest for iOS Device Control CLI
+# Usage: uvx --from-manifest uvx-ios-cli.toml ios-control [args]
+
+[manifest]
+name = "ios-control"
+description = "iOS Device Control CLI - Manage iOS simulators and real devices"
+version = "0.1.0"
+
+[manifest.dependencies]
+# Main package
+chuk-mcp-ios = { git = "https://github.com/chrishayuk/chuk-mcp-ios.git", branch = "main" }
+
+# Core dependencies
+beautifulsoup4 = ">=4.13.4"
+chuk-mcp-runtime = ">=0.3"
+pillow = ">=11.2.1"
+pydantic = ">=2.11.5"
+requests = ">=2.32.3"
+click = ">=8.0.0"
+
+# Optional dependencies for real device support
+fb-idb = { version = ">=1.1.7", optional = true }
+
+[manifest.scripts]
+# Primary CLI entry point
+ios-control = "chuk_mcp_ios.cli.main:main"
+
+# Convenience aliases
+ios-device-control = "chuk_mcp_ios.cli.main:main"
+ios-sim = "chuk_mcp_ios.cli.main:main"
+
+[manifest.metadata]
+homepage = "https://github.com/chrishayuk/chuk-mcp-ios"
+documentation = "https://github.com/chrishayuk/chuk-mcp-ios/blob/main/README.md"
+repository = "https://github.com/chrishayuk/chuk-mcp-ios"
+keywords = ["ios", "simulator", "automation", "testing", "cli"]
+license = "MIT"
+
+[manifest.requirements]
+# Minimum Python version
+python = ">=3.11"
+
+# System requirements (informational)
+[manifest.requirements.system]
+macos = ">=12.0"  # Minimum macOS for modern Xcode
+xcode = ">=14.0"  # Minimum Xcode version
+
+[manifest.requirements.notes]
+setup = [
+    "Requires Xcode Command Line Tools: xcode-select --install",
+    "For real device support, install idb: brew install idb-companion",
+    "iOS Simulators must be downloaded via Xcode > Settings > Platforms"
+]
+
+[manifest.examples]
+# Quick start examples
+basic = [
+    "ios-control status                    # Check system status",
+    "ios-control device list               # List available devices", 
+    "ios-control quick-start               # Quick setup with auto device",
+    "ios-control session create --device 'iPhone 15'  # Create device session"
+]
+
+device_management = [
+    "ios-control device boot <udid>        # Boot simulator",
+    "ios-control device info <udid>        # Get device info",
+    "ios-control device shutdown <udid>    # Shutdown simulator"
+]
+
+app_management = [
+    "ios-control app install <session> <path>   # Install app",
+    "ios-control app launch <session> <bundle>  # Launch app",
+    "ios-control app list <session>             # List installed apps"
+]
+
+ui_automation = [
+    "ios-control ui tap <session> 100 200       # Tap coordinates",
+    "ios-control ui type <session> 'hello'      # Type text",
+    "ios-control ui screenshot <session> -o pic.png  # Take screenshot"
+]
+
+[manifest.help]
+description = """
+iOS Device Control CLI provides comprehensive control over iOS simulators and real devices.
+
+Features:
+• Device discovery and management (simulators & real devices)
+• Session-based workflow for device control
+• App installation, launching, and management
+• UI automation (tap, swipe, text input, screenshots)
+• Location simulation and media management
+• Status bar customization and appearance control
+
+Prerequisites:
+• macOS with Xcode Command Line Tools
+• iOS Simulators (download via Xcode)
+• Optional: idb for real device support
+
+Quick Start:
+1. uvx --from-manifest uvx-ios-cli.toml ios-control status
+2. uvx --from-manifest uvx-ios-cli.toml ios-control quick-start
+3. Follow the prompts to create your first session
+
+Common Workflows:
+
+System Check:
+  uvx --from-manifest uvx-ios-cli.toml ios-control status
+
+Device Management:
+  uvx --from-manifest uvx-ios-cli.toml ios-control device list
+  uvx --from-manifest uvx-ios-cli.toml ios-control device boot <udid>
+
+Session Management:
+  uvx --from-manifest uvx-ios-cli.toml ios-control session create
+  uvx --from-manifest uvx-ios-cli.toml ios-control session list
+
+App Testing:
+  uvx --from-manifest uvx-ios-cli.toml ios-control app install <session> app.ipa
+  uvx --from-manifest uvx-ios-cli.toml ios-control app launch <session> com.example.app
+
+UI Automation:
+  uvx --from-manifest uvx-ios-cli.toml ios-control ui screenshot <session>
+  uvx --from-manifest uvx-ios-cli.toml ios-control ui tap <session> 200 300
+
+The CLI provides a complete toolkit for iOS device automation, testing, and development workflows.
+"""
