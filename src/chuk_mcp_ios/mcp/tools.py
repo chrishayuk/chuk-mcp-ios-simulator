@@ -136,17 +136,18 @@ async def ios_create_session(
         # Get session info
         info = await run_sync(session_manager.get_session_info, session_id)
         
-        return CreateSessionResult(
-            session_id=session_id,
-            device_name=info['device_name'],
-            udid=info['device_udid'],
-            device_type=info['device_type'],
-            platform_version=info.get('os_version', 'Unknown'),
-            state=info['current_state']
-        ).model_dump()
+        # Fix: Convert enum to string for JSON serialization
+        return {
+            "session_id": session_id,
+            "device_name": info['device_name'],
+            "udid": info['device_udid'],
+            "device_type": info['device_type'],  # This should already be a string from get_session_info
+            "platform_version": info.get('os_version', 'Unknown'),
+            "state": info['current_state']
+        }
     except Exception as e:
-        return ErrorResult(error=str(e)).model_dump()
-
+        return {"error": str(e)}
+    
 @mcp_tool(
     name="ios_list_sessions",
     description="List all active iOS device sessions",
