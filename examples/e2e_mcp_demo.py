@@ -12,6 +12,7 @@ Demonstrates the full MCP iOS server stack in action:
 6. Media and location features
 
 This script shows the MCP server working end-to-end with real iOS simulator operations.
+Updated to use ios_session_id parameter naming to avoid MCP runtime validation issues.
 """
 
 import asyncio
@@ -25,6 +26,9 @@ from typing import Dict, Any
 # Import MCP tools directly to demonstrate the server functionality
 import sys
 sys.path.insert(0, str(Path(__file__).parent.parent))
+
+from dotenv import load_dotenv
+load_dotenv()
 
 from chuk_mcp_ios.mcp.tools import (
     # Session management
@@ -56,8 +60,7 @@ from chuk_mcp_ios.mcp.tools import (
     
     # Utilities
     ios_open_url,
-    ios_set_status_bar,
-    ios_set_appearance,
+    ios_set_permission,
     ios_focus_simulator
 )
 
@@ -179,41 +182,28 @@ class MCPServerDemo:
         self.log("\n⚙️ SECTION 3: Basic Device Operations", "SECTION")
         self.log("-" * 40, "SECTION")
         
-        # Get screen info
+        # Get screen info - UPDATED: using ios_session_id
         self.log("📐 Getting screen information...", "INFO")
-        screen_result = await ios_get_screen_info(self.session_id)
+        screen_result = await ios_get_screen_info(ios_session_id=self.session_id)
         
         if 'error' not in screen_result:
             self.log(f"✅ Screen: {screen_result['width']}x{screen_result['height']}", "SUCCESS")
             self.log(f"   Scale: {screen_result['scale']}x", "INFO")
             self.log(f"   Orientation: {screen_result['orientation']}", "INFO")
         
-        # Set demo status bar
-        self.log("📶 Setting demo status bar...", "INFO")
-        status_result = await ios_set_status_bar(
-            session_id=self.session_id,
-            time="9:41",
-            battery_level=100,
-            cellular_bars=4,
-            wifi_bars=3
-        )
-        
-        if 'error' not in status_result:
-            self.log("✅ Demo status bar configured", "SUCCESS")
-        
-        # Take initial screenshot
+        # Take initial screenshot - UPDATED: using ios_session_id
         self.log("📸 Taking initial screenshot...", "INFO")
         screenshot_result = await ios_screenshot(
-            session_id=self.session_id,
+            ios_session_id=self.session_id,
             output_path=str(self.demo_dir / "01_initial_state.png")
         )
         
         if 'error' not in screenshot_result:
             self.log(f"✅ Screenshot saved: {screenshot_result['file_path']}", "SUCCESS")
         
-        # Focus simulator window
+        # Focus simulator window - UPDATED: using ios_session_id
         self.log("🎯 Focusing simulator window...", "INFO")
-        focus_result = await ios_focus_simulator(self.session_id)
+        focus_result = await ios_focus_simulator(ios_session_id=self.session_id)
         if 'error' not in focus_result:
             self.log("✅ Simulator window focused", "SUCCESS")
     
@@ -222,9 +212,9 @@ class MCPServerDemo:
         self.log("\n📱 SECTION 4: App Management", "SECTION")
         self.log("-" * 40, "SECTION")
         
-        # List installed apps
+        # List installed apps - UPDATED: using ios_session_id
         self.log("📋 Listing installed apps...", "INFO")
-        apps_result = await ios_list_apps(self.session_id, user_apps_only=False)
+        apps_result = await ios_list_apps(ios_session_id=self.session_id, user_apps_only=False)
         
         if 'error' not in apps_result:
             apps = apps_result.get('apps', [])
@@ -245,7 +235,8 @@ class MCPServerDemo:
         for bundle_id, name in test_apps:
             try:
                 self.log(f"🚀 Launching {name}...", "INFO")
-                launch_result = await ios_launch_app(self.session_id, bundle_id)
+                # UPDATED: using ios_session_id
+                launch_result = await ios_launch_app(ios_session_id=self.session_id, bundle_id=bundle_id)
                 
                 if 'error' not in launch_result:
                     self.log(f"✅ {name} launched successfully", "SUCCESS")
@@ -253,14 +244,14 @@ class MCPServerDemo:
                     # Wait for app to load
                     await asyncio.sleep(2)
                     
-                    # Take screenshot
+                    # Take screenshot - UPDATED: using ios_session_id
                     screenshot_path = str(self.demo_dir / f"app_{name.lower()}.png")
-                    await ios_screenshot(self.session_id, screenshot_path)
+                    await ios_screenshot(ios_session_id=self.session_id, output_path=screenshot_path)
                     self.log(f"📸 Screenshot taken: {name}", "INFO")
                     
-                    # Terminate app
+                    # Terminate app - UPDATED: using ios_session_id
                     self.log(f"🛑 Terminating {name}...", "INFO")
-                    await ios_terminate_app(self.session_id, bundle_id)
+                    await ios_terminate_app(ios_session_id=self.session_id, bundle_id=bundle_id)
                     await asyncio.sleep(1)
                 
             except Exception as e:
@@ -271,20 +262,20 @@ class MCPServerDemo:
         self.log("\n🎮 SECTION 5: UI Automation", "SECTION")
         self.log("-" * 40, "SECTION")
         
-        # Launch Settings for UI demo
+        # Launch Settings for UI demo - UPDATED: using ios_session_id
         self.log("⚙️ Launching Settings for UI demo...", "INFO")
-        await ios_launch_app(self.session_id, 'com.apple.Preferences')
+        await ios_launch_app(ios_session_id=self.session_id, bundle_id='com.apple.Preferences')
         await asyncio.sleep(3)
         
-        # Take screenshot of Settings
-        await ios_screenshot(self.session_id, str(self.demo_dir / "02_settings_main.png"))
+        # Take screenshot of Settings - UPDATED: using ios_session_id
+        await ios_screenshot(ios_session_id=self.session_id, output_path=str(self.demo_dir / "02_settings_main.png"))
         self.log("📸 Settings main screen captured", "INFO")
         
-        # Demonstrate various UI interactions
+        # Demonstrate various UI interactions - UPDATED: using ios_session_id
         ui_actions = [
-            ("Tap", lambda: ios_tap(self.session_id, 200, 300)),
-            ("Swipe up", lambda: ios_swipe_direction(self.session_id, "up")),
-            ("Swipe down", lambda: ios_swipe_direction(self.session_id, "down")),
+            ("Tap", lambda: ios_tap(ios_session_id=self.session_id, x=200, y=300)),
+            ("Swipe up", lambda: ios_swipe_direction(ios_session_id=self.session_id, direction="up")),
+            ("Swipe down", lambda: ios_swipe_direction(ios_session_id=self.session_id, direction="down")),
         ]
         
         for action_name, action_func in ui_actions:
@@ -296,9 +287,9 @@ class MCPServerDemo:
                     self.log(f"✅ {action_name} executed", "SUCCESS")
                     await asyncio.sleep(1)
                     
-                    # Take screenshot after action
+                    # Take screenshot after action - UPDATED: using ios_session_id
                     screenshot_name = f"ui_{action_name.lower().replace(' ', '_')}.png"
-                    await ios_screenshot(self.session_id, str(self.demo_dir / screenshot_name))
+                    await ios_screenshot(ios_session_id=self.session_id, output_path=str(self.demo_dir / screenshot_name))
                 
             except Exception as e:
                 self.log(f"⚠️ {action_name} failed: {e}", "WARNING")
@@ -306,20 +297,20 @@ class MCPServerDemo:
         # Demonstrate text input (if there's a search field)
         try:
             self.log("⌨️ Demonstrating text input...", "INFO")
-            # Try to input some text (this may or may not work depending on focus)
-            input_result = await ios_input_text(self.session_id, "test")
+            # Try to input some text - UPDATED: using ios_session_id
+            input_result = await ios_input_text(ios_session_id=self.session_id, text="test")
             if 'error' not in input_result:
                 self.log("✅ Text input demonstrated", "SUCCESS")
         except:
             self.log("⚠️ Text input demo skipped (no active field)", "WARNING")
         
-        # Demonstrate hardware button press
+        # Demonstrate hardware button press - UPDATED: using ios_session_id
         self.log("🏠 Pressing home button...", "INFO")
-        home_result = await ios_press_button(self.session_id, "home")
+        home_result = await ios_press_button(ios_session_id=self.session_id, button="home")
         if 'error' not in home_result:
             self.log("✅ Home button pressed", "SUCCESS")
             await asyncio.sleep(2)
-            await ios_screenshot(self.session_id, str(self.demo_dir / "03_after_home.png"))
+            await ios_screenshot(ios_session_id=self.session_id, output_path=str(self.demo_dir / "03_after_home.png"))
     
     async def demo_media_and_location(self):
         """Demonstrate media and location features."""
@@ -330,19 +321,19 @@ class MCPServerDemo:
         sample_image = await self.create_sample_media()
         
         if sample_image:
-            # Add media to device
+            # Add media to device - UPDATED: using ios_session_id
             self.log("🖼️ Adding sample image to Photos...", "INFO")
-            media_result = await ios_add_media(self.session_id, [str(sample_image)])
+            media_result = await ios_add_media(ios_session_id=self.session_id, media_paths=[str(sample_image)])
             
             if 'error' not in media_result:
                 files_processed = media_result.get('files_processed', 0)
                 self.log(f"✅ Added {files_processed} media files", "SUCCESS")
                 
-                # Launch Photos to show the added image
+                # Launch Photos to show the added image - UPDATED: using ios_session_id
                 self.log("📸 Launching Photos app...", "INFO")
-                await ios_launch_app(self.session_id, 'com.apple.mobileslideshow')
+                await ios_launch_app(ios_session_id=self.session_id, bundle_id='com.apple.mobileslideshow')
                 await asyncio.sleep(3)
-                await ios_screenshot(self.session_id, str(self.demo_dir / "04_photos_with_media.png"))
+                await ios_screenshot(ios_session_id=self.session_id, output_path=str(self.demo_dir / "04_photos_with_media.png"))
         
         # Demonstrate location features
         locations = [
@@ -356,12 +347,12 @@ class MCPServerDemo:
                 self.log(f"📍 Setting location to {location_name}...", "INFO")
                 
                 if location_key:
-                    # Use predefined location
-                    location_result = await ios_set_location_by_name(self.session_id, location_key)
+                    # Use predefined location - UPDATED: using ios_session_id
+                    location_result = await ios_set_location_by_name(ios_session_id=self.session_id, location_name=location_key)
                 else:
-                    # Use custom coordinates (London)
+                    # Use custom coordinates (London) - UPDATED: using ios_session_id
                     location_result = await ios_set_location(
-                        session_id=self.session_id,
+                        ios_session_id=self.session_id,
                         latitude=51.5074,
                         longitude=-0.1278
                     )
@@ -376,9 +367,10 @@ class MCPServerDemo:
         # Launch Maps to show location
         try:
             self.log("🗺️ Launching Maps to show location...", "INFO")
-            await ios_launch_app(self.session_id, 'com.apple.Maps')
+            # UPDATED: using ios_session_id
+            await ios_launch_app(ios_session_id=self.session_id, bundle_id='com.apple.Maps')
             await asyncio.sleep(4)
-            await ios_screenshot(self.session_id, str(self.demo_dir / "05_maps_location.png"))
+            await ios_screenshot(ios_session_id=self.session_id, output_path=str(self.demo_dir / "05_maps_location.png"))
         except Exception as e:
             self.log(f"⚠️ Maps demo failed: {e}", "WARNING")
     
@@ -386,21 +378,6 @@ class MCPServerDemo:
         """Demonstrate advanced features."""
         self.log("\n🔧 SECTION 7: Advanced Features", "SECTION")
         self.log("-" * 40, "SECTION")
-        
-        # Demonstrate appearance switching
-        self.log("🌓 Switching to dark mode...", "INFO")
-        dark_result = await ios_set_appearance(self.session_id, "dark")
-        if 'error' not in dark_result:
-            self.log("✅ Dark mode enabled", "SUCCESS")
-            await asyncio.sleep(2)
-            await ios_screenshot(self.session_id, str(self.demo_dir / "06_dark_mode.png"))
-        
-        # Switch back to light mode
-        self.log("☀️ Switching to light mode...", "INFO")
-        light_result = await ios_set_appearance(self.session_id, "light")
-        if 'error' not in light_result:
-            self.log("✅ Light mode enabled", "SUCCESS")
-            await asyncio.sleep(1)
         
         # Demonstrate URL opening
         test_urls = [
@@ -411,37 +388,49 @@ class MCPServerDemo:
         for url in test_urls:
             try:
                 self.log(f"🌐 Opening {url}...", "INFO")
-                url_result = await ios_open_url(self.session_id, url)
+                # UPDATED: using ios_session_id
+                url_result = await ios_open_url(ios_session_id=self.session_id, url=url)
                 
                 if 'error' not in url_result:
                     self.log(f"✅ {url} opened in Safari", "SUCCESS")
                     await asyncio.sleep(3)
                     
-                    # Take screenshot
+                    # Take screenshot - UPDATED: using ios_session_id
                     url_name = url.split('//')[1].split('.')[1]  # Extract domain
                     screenshot_path = str(self.demo_dir / f"web_{url_name}.png")
-                    await ios_screenshot(self.session_id, screenshot_path)
+                    await ios_screenshot(ios_session_id=self.session_id, output_path=screenshot_path)
                 
             except Exception as e:
                 self.log(f"⚠️ URL demo failed for {url}: {e}", "WARNING")
         
-        # Return to home screen
+        # Return to home screen - UPDATED: using ios_session_id
         self.log("🏠 Returning to home screen...", "INFO")
-        await ios_press_button(self.session_id, "home")
+        await ios_press_button(ios_session_id=self.session_id, button="home")
         await asyncio.sleep(2)
+        
+        # Demonstrate permissions
+        self.log("🔐 Demonstrating permission settings...", "INFO")
+        try:
+            # Set location permission for Safari - UPDATED: using ios_session_id
+            perm_result = await ios_set_permission(
+                ios_session_id=self.session_id,
+                bundle_id="com.apple.mobilesafari",
+                service="location",
+                status="allow"
+            )
+            if 'error' not in perm_result:
+                self.log("✅ Location permission set for Safari", "SUCCESS")
+        except Exception as e:
+            self.log(f"⚠️ Permission demo failed: {e}", "WARNING")
     
     async def demo_cleanup(self):
         """Demonstrate cleanup operations."""
         self.log("\n🧹 SECTION 8: Cleanup", "SECTION")
         self.log("-" * 40, "SECTION")
         
-        # Clear status bar overrides
-        self.log("📶 Clearing status bar overrides...", "INFO")
-        # Note: Would need a clear status bar function in the MCP tools
-        
-        # Take final screenshot
+        # Take final screenshot - UPDATED: using ios_session_id
         self.log("📸 Taking final screenshot...", "INFO")
-        await ios_screenshot(self.session_id, str(self.demo_dir / "99_final_state.png"))
+        await ios_screenshot(ios_session_id=self.session_id, output_path=str(self.demo_dir / "99_final_state.png"))
         
         # List all sessions before cleanup
         self.log("📋 Final session status...", "INFO")
@@ -455,7 +444,8 @@ class MCPServerDemo:
         self.log("🚨 Performing emergency cleanup...", "WARNING")
         if self.session_id:
             try:
-                await ios_terminate_session(self.session_id)
+                # UPDATED: using ios_session_id
+                await ios_terminate_session(ios_session_id=self.session_id)
                 self.log("✅ Emergency session cleanup completed", "SUCCESS")
             except:
                 pass
@@ -514,11 +504,11 @@ class MCPServerDemo:
             sections = [
                 "✅ Device Discovery - Found and selected simulator",
                 "✅ Session Management - Created and managed session lifecycle", 
-                "✅ Basic Device Operations - Screenshots, status bar, screen info",
+                "✅ Basic Device Operations - Screenshots, screen info",
                 "✅ App Management - Listed, launched, and terminated apps",
                 "✅ UI Automation - Taps, swipes, text input, hardware buttons",
                 "✅ Media and Location - Added photos, set GPS locations",
-                "✅ Advanced Features - Appearance modes, URL opening",
+                "✅ Advanced Features - URL opening, permissions",
                 "✅ Cleanup - Proper session termination"
             ]
             
@@ -532,6 +522,8 @@ class MCPServerDemo:
                 f.write(f"- `{screenshot.name}`\n")
             
             f.write(f"\n## MCP Tools Demonstrated\n\n")
+            f.write("Note: All tools now use `ios_session_id` parameter to avoid MCP runtime conflicts.\n\n")
+            
             mcp_tools = [
                 "ios_create_session", "ios_list_sessions", "ios_terminate_session",
                 "ios_list_devices", "ios_boot_device",
@@ -539,8 +531,7 @@ class MCPServerDemo:
                 "ios_tap", "ios_screenshot", "ios_input_text", "ios_press_button",
                 "ios_swipe_direction", "ios_get_screen_info",
                 "ios_set_location", "ios_set_location_by_name", "ios_add_media",
-                "ios_open_url", "ios_set_status_bar", "ios_set_appearance",
-                "ios_focus_simulator"
+                "ios_open_url", "ios_set_permission", "ios_focus_simulator"
             ]
             
             for tool in mcp_tools:
@@ -565,6 +556,7 @@ class MCPServerDemo:
             f.write(f"Session ID: {self.session_id}\n\n")
             f.write("All MCP server tools tested successfully!\n")
             f.write("The iOS device control MCP server is working end-to-end.\n")
+            f.write("\nNote: Updated to use ios_session_id parameter naming.\n")
 
 async def main():
     """Run the end-to-end MCP demo."""

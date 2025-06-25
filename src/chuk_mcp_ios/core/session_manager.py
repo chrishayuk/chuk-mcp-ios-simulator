@@ -5,6 +5,8 @@ Unified Session Manager for iOS Device Control
 
 Manages device sessions for both simulators and real devices.
 Provides session lifecycle management, tracking, and cleanup.
+
+FIXED VERSION: Implements automatic cleanup, session limits, and better lifecycle management.
 """
 
 import time
@@ -12,7 +14,7 @@ import secrets
 import json
 from typing import Dict, List, Optional, Any
 from dataclasses import dataclass, asdict
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from .base import (
@@ -61,20 +63,37 @@ class UnifiedSessionManager:
     """
     Manages device sessions with automatic lifecycle management.
     Supports both iOS simulators and real devices.
+    Fixed version with automatic cleanup and session limits.
     """
     
-    def __init__(self, session_dir: Optional[Path] = None):
+    def __init__(self, session_dir: Optional[Path] = None, max_sessions: int = 10, auto_cleanup_hours: int = 6):
+        """
+        Initialize with automatic cleanup and session limits.
+        
+        Args:
+            session_dir: Directory for session files
+            max_sessions: Maximum number of concurrent sessions (default: 10)
+            auto_cleanup_hours: Auto cleanup sessions older than this (default: 6 hours)
+        """
         self.device_manager = UnifiedDeviceManager()
         self.sessions: Dict[str, SessionInfo] = {}
         self.session_dir = session_dir or Path.home() / ".ios-device-control" / "sessions"
         self.session_dir.mkdir(parents=True, exist_ok=True)
+        self.max_sessions = max_sessions
+        self.auto_cleanup_hours = auto_cleanup_hours
         
-        # Load existing sessions
+        # Clean up old sessions on startup
+        self._cleanup_old_sessions_on_startup()
+        
+        # Load existing sessions with improved error handling
         self._load_sessions()
+        
+        # Enforce session limit
+        self._enforce_session_limit()
     
     def create_session(self, config: Optional[SessionConfig] = None) -> str:
         """
-        Create a new device session.
+        Create a new device session with automatic cleanup.
         
         Args:
             config: Session configuration
@@ -83,9 +102,22 @@ class UnifiedSessionManager:
             str: Session ID
             
         Raises:
+            SessionError: If maximum sessions reached
             DeviceNotFoundError: If no suitable device is found
             DeviceNotAvailableError: If device cannot be made available
         """
+        # Check session limit
+        if len(self.sessions) >= self.max_sessions:
+            # Try to clean up old sessions first
+            self.cleanup_inactive_sessions(max_age_hours=1)
+            
+            # Check again
+            if len(self.sessions) >= self.max_sessions:
+                raise SessionError(
+                    f"Maximum sessions ({self.max_sessions}) reached. "
+                    "Please terminate existing sessions first."
+                )
+        
         if config is None:
             config = SessionConfig()
         
@@ -117,12 +149,13 @@ class UnifiedSessionManager:
         
         print(f"✅ Session created: {session_id}")
         print(f"   Device: {device.name} ({device.device_type.value})")
+        print(f"   Active sessions: {len(self.sessions)}/{self.max_sessions}")
         
         return session_id
     
     def terminate_session(self, session_id: str) -> None:
         """
-        Terminate a session.
+        Terminate a session with proper cleanup.
         
         Args:
             session_id: Session ID to terminate
@@ -131,7 +164,14 @@ class UnifiedSessionManager:
             SessionError: If session not found
         """
         if session_id not in self.sessions:
-            raise SessionError(f"Session not found: {session_id}")
+            # Check if it's an old session file
+            session_file = self.session_dir / f"{session_id}.json"
+            if session_file.exists():
+                session_file.unlink()
+                print(f"✅ Cleaned up orphaned session file: {session_id}")
+            else:
+                raise SessionError(f"Session not found: {session_id}")
+            return
         
         session_info = self.sessions[session_id]
         
@@ -152,6 +192,7 @@ class UnifiedSessionManager:
         self._delete_session_file(session_id)
         
         print(f"✅ Session terminated: {session_id}")
+        print(f"   Active sessions: {len(self.sessions)}/{self.max_sessions}")
     
     def get_session_info(self, session_id: str) -> Dict[str, Any]:
         """
@@ -320,6 +361,21 @@ class UnifiedSessionManager:
         
         return cleaned
     
+    def periodic_cleanup(self, max_age_hours: Optional[int] = None) -> None:
+        """
+        Periodically clean up inactive sessions.
+        Should be called regularly (e.g., every hour).
+        
+        Args:
+            max_age_hours: Maximum age for inactive sessions (uses auto_cleanup_hours if not specified)
+        """
+        if max_age_hours is None:
+            max_age_hours = self.auto_cleanup_hours
+            
+        cleaned = self.cleanup_inactive_sessions(max_age_hours)
+        if cleaned:
+            print(f"🧹 Periodic cleanup: removed {len(cleaned)} inactive sessions")
+    
     def get_sessions_by_device_type(self, device_type: DeviceType) -> List[str]:
         """Get all sessions for a specific device type."""
         return [
@@ -356,7 +412,7 @@ class UnifiedSessionManager:
         """Print formatted status of all sessions."""
         sessions = self.list_sessions()
         
-        print(f"\n📊 Active Sessions ({len(sessions)}):")
+        print(f"\n📊 Active Sessions ({len(sessions)}/{self.max_sessions}):")
         print("=" * 60)
         
         if not sessions:
@@ -388,6 +444,56 @@ class UnifiedSessionManager:
                 
             except Exception as e:
                 print(f"\n❌ {session_id} (Error: {e})")
+    
+    def _cleanup_old_sessions_on_startup(self):
+        """Clean up old sessions on startup."""
+        print("🧹 Cleaning up old sessions...")
+        
+        cutoff_time = datetime.now() - timedelta(hours=self.auto_cleanup_hours)
+        removed = 0
+        corrupted = 0
+        
+        for session_file in self.session_dir.glob("*.json"):
+            try:
+                with open(session_file, 'r') as f:
+                    data = json.load(f)
+                
+                # Check if session is old
+                created_at = datetime.fromisoformat(data['created_at'])
+                if created_at < cutoff_time:
+                    session_file.unlink()
+                    removed += 1
+            except Exception as e:
+                # Remove corrupted files
+                print(f"Removing corrupted session file: {session_file.name}")
+                session_file.unlink()
+                corrupted += 1
+        
+        if removed > 0 or corrupted > 0:
+            print(f"✅ Cleaned up {removed} old and {corrupted} corrupted session files")
+    
+    def _enforce_session_limit(self):
+        """Ensure we don't exceed maximum session limit."""
+        if len(self.sessions) > self.max_sessions:
+            # Sort sessions by creation time
+            sorted_sessions = sorted(
+                self.sessions.items(),
+                key=lambda x: x[1].created_at
+            )
+            
+            # Remove oldest sessions
+            to_remove = len(self.sessions) - self.max_sessions
+            for session_id, _ in sorted_sessions[:to_remove]:
+                try:
+                    self.terminate_session(session_id)
+                except Exception as e:
+                    print(f"Failed to terminate old session {session_id}: {e}")
+                    # Force remove
+                    if session_id in self.sessions:
+                        del self.sessions[session_id]
+                    self._delete_session_file(session_id)
+            
+            print(f"✅ Enforced session limit: {len(self.sessions)}/{self.max_sessions}")
     
     def _find_or_prepare_device(self, config: SessionConfig) -> DeviceInfo:
         """Find or prepare a device based on configuration."""
@@ -461,39 +567,146 @@ class UnifiedSessionManager:
             return f"session_{timestamp}_{unique_id}"
     
     def _save_session(self, session_info: SessionInfo):
-        """Save session to disk."""
+        """Save session to disk with proper enum serialization."""
         session_file = self.session_dir / f"{session_info.session_id}.json"
         
+        # Convert enum to string before JSON serialization
         data = {
             'session_id': session_info.session_id,
             'device_udid': session_info.device_udid,
-            'device_type': session_info.device_type.value,
+            'device_type': session_info.device_type.value,  # Convert enum to string
             'created_at': session_info.created_at.isoformat(),
-            'metadata': session_info.metadata
+            'metadata': self._serialize_metadata(session_info.metadata)  # Handle nested objects
         }
         
-        with open(session_file, 'w') as f:
-            json.dump(data, f, indent=2)
+        try:
+            with open(session_file, 'w') as f:
+                json.dump(data, f, indent=2, default=self._json_serializer)
+            # Only log in debug mode to reduce noise
+            # print(f"💾 Session saved: {session_info.session_id}")
+        except Exception as e:
+            print(f"❌ Failed to save session {session_info.session_id}: {e}")
+            # Don't raise - allow session creation to continue even if save fails
+    
+    def _serialize_metadata(self, metadata: Dict[str, Any]) -> Dict[str, Any]:
+        """Recursively serialize metadata to JSON-compatible format."""
+        if not isinstance(metadata, dict):
+            return metadata
+        
+        serialized = {}
+        for key, value in metadata.items():
+            if hasattr(value, 'value'):  # Handle enums
+                serialized[key] = value.value
+            elif isinstance(value, dict):
+                serialized[key] = self._serialize_metadata(value)
+            elif isinstance(value, (list, tuple)):
+                serialized[key] = [
+                    item.value if hasattr(item, 'value') else item 
+                    for item in value
+                ]
+            elif isinstance(value, datetime):
+                serialized[key] = value.isoformat()
+            elif isinstance(value, Path):
+                serialized[key] = str(value)
+            else:
+                serialized[key] = value
+        return serialized
+    
+    def _json_serializer(self, obj):
+        """Custom JSON serializer for non-standard types."""
+        if hasattr(obj, 'value'):  # Handle enums
+            return obj.value
+        elif isinstance(obj, datetime):
+            return obj.isoformat()
+        elif isinstance(obj, Path):
+            return str(obj)
+        else:
+            return str(obj)
     
     def _load_sessions(self):
-        """Load sessions from disk."""
+        """Load sessions from disk with better error handling."""
+        loaded_count = 0
+        failed_count = 0
+        
+        # Only load sessions newer than auto_cleanup_hours
+        cutoff_time = datetime.now() - timedelta(hours=self.auto_cleanup_hours)
+        
         for session_file in self.session_dir.glob("*.json"):
             try:
                 with open(session_file, 'r') as f:
                     data = json.load(f)
                 
+                # Validate required fields
+                required_fields = ['session_id', 'device_udid', 'device_type', 'created_at']
+                if not all(field in data for field in required_fields):
+                    print(f"Warning: Invalid session file {session_file} - missing required fields")
+                    failed_count += 1
+                    session_file.unlink()  # Remove invalid file
+                    continue
+                
+                # Parse datetime and check age
+                try:
+                    created_at = datetime.fromisoformat(data['created_at'])
+                    if created_at < cutoff_time:
+                        # Skip old sessions
+                        session_file.unlink()
+                        continue
+                except ValueError:
+                    print(f"Warning: Invalid created_at in {session_file}: {data['created_at']}")
+                    failed_count += 1
+                    session_file.unlink()  # Remove invalid file
+                    continue
+                
+                # Proper enum conversion with validation
+                try:
+                    device_type = DeviceType(data['device_type']) if isinstance(data['device_type'], str) else data['device_type']
+                except ValueError:
+                    print(f"Warning: Invalid device_type in {session_file}: {data['device_type']}")
+                    failed_count += 1
+                    session_file.unlink()  # Remove invalid file
+                    continue
+                
                 session_info = SessionInfo(
                     session_id=data['session_id'],
                     device_udid=data['device_udid'],
-                    device_type=DeviceType(data['device_type']),
-                    created_at=datetime.fromisoformat(data['created_at']),
+                    device_type=device_type,
+                    created_at=created_at,
                     metadata=data.get('metadata', {})
                 )
                 
                 self.sessions[session_info.session_id] = session_info
+                loaded_count += 1
                 
+                # Stop loading if we hit the max limit
+                if loaded_count >= self.max_sessions:
+                    print(f"⚠️ Reached max sessions limit ({self.max_sessions}), skipping remaining files")
+                    break
+                
+            except json.JSONDecodeError as e:
+                print(f"Warning: Invalid JSON in session file {session_file}: {e}")
+                failed_count += 1
+                # Move corrupted files to backup directory
+                self._backup_corrupted_session(session_file)
             except Exception as e:
                 print(f"Warning: Failed to load session {session_file}: {e}")
+                failed_count += 1
+        
+        if loaded_count > 0:
+            print(f"📁 Loaded {loaded_count} sessions from disk")
+        if failed_count > 0:
+            print(f"⚠️ Failed to load {failed_count} session files")
+    
+    def _backup_corrupted_session(self, session_file: Path):
+        """Move corrupted session file to backup directory."""
+        try:
+            backup_dir = self.session_dir / "corrupted"
+            backup_dir.mkdir(exist_ok=True)
+            
+            backup_file = backup_dir / f"{session_file.name}.{int(time.time())}.bak"
+            session_file.rename(backup_file)
+            print(f"📁 Moved corrupted session to: {backup_file}")
+        except Exception as e:
+            print(f"⚠️ Failed to backup corrupted session: {e}")
     
     def _delete_session_file(self, session_id: str):
         """Delete session file from disk."""
@@ -546,5 +759,7 @@ class UnifiedSessionManager:
             'available_sessions': available,
             'average_age_hours': avg_age / 3600,
             'oldest_session_hours': max(ages) / 3600 if ages else 0,
-            'newest_session_hours': min(ages) / 3600 if ages else 0
+            'newest_session_hours': min(ages) / 3600 if ages else 0,
+            'max_sessions_limit': self.max_sessions,
+            'auto_cleanup_hours': self.auto_cleanup_hours
         }

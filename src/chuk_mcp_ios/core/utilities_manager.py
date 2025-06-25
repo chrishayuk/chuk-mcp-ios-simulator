@@ -5,6 +5,8 @@ Unified Utilities Manager for iOS Device Control
 
 Provides utility operations including URL handling, permissions, keychain, 
 debugging, and other device management utilities for both simulators and real devices.
+
+ENHANCED VERSION: Improved session ID to Device UDID resolution.
 """
 
 import os
@@ -25,10 +27,10 @@ from .base import (
     DeviceType,
     DeviceNotAvailableError,
     DeviceError,
+    SessionError,
     detect_available_tools
 )
 from .device_manager import UnifiedDeviceManager
-from .session_manager import UnifiedSessionManager
 
 @dataclass
 class Permission:
@@ -72,6 +74,8 @@ class UnifiedUtilitiesManager(CommandExecutor):
     """
     Unified utilities manager supporting both iOS simulators and real devices.
     Provides various utility operations for device management and testing.
+    
+    ENHANCED VERSION: Improved session resolution and error handling.
     """
     
     def __init__(self):
@@ -79,6 +83,19 @@ class UnifiedUtilitiesManager(CommandExecutor):
         self.device_manager = UnifiedDeviceManager()
         self.session_manager = None  # Optional session manager
         self.available_tools = detect_available_tools()
+        
+        # Add logging if available
+        try:
+            import logging
+            self.logger = logging.getLogger(__name__)
+        except:
+            # Fallback logger
+            class FakeLogger:
+                def debug(self, msg): pass
+                def info(self, msg): pass
+                def warning(self, msg): pass
+                def error(self, msg): pass
+            self.logger = FakeLogger()
         
         # Predefined network profiles
         self.network_profiles = {
@@ -113,11 +130,130 @@ class UnifiedUtilitiesManager(CommandExecutor):
             'notifications-settings': URLScheme('prefs:root=NOTIFICATIONS_ID', 'com.apple.Preferences', 'Notifications'),
         }
     
-    def set_session_manager(self, session_manager: UnifiedSessionManager):
+    def set_session_manager(self, session_manager):
         """Set session manager for session-based operations."""
         self.session_manager = session_manager
+        self.logger.debug(f"Session manager set: {id(session_manager)}")
+        print(f"🔧 Utilities manager configured with session manager: {id(session_manager)}")
     
+
+    def _get_device_udid_from_session(self, session_id: str) -> str:
+        """
+        Get device UDID from session ID using enhanced resolution strategy.
+        
+        Args:
+            session_id: Session identifier
+            
+        Returns:
+            str: Device UDID
+            
+        Raises:
+            SessionError: If session cannot be resolved
+        """
+        # Strategy 1: Try the configured session manager first
+        if self.session_manager:
+            try:
+                device_udid = self.session_manager.get_device_udid(session_id)
+                self.logger.debug(f"Session {session_id} resolved via configured manager to {device_udid}")
+                return device_udid
+            except Exception as e:
+                self.logger.debug(f"Configured session manager failed for {session_id}: {e}")
+        
+        # Strategy 2: Try to get session manager from global registry
+        try:
+            from ..mcp.tools import get_session_manager_for_session
+            session_manager = get_session_manager_for_session(session_id)
+            if session_manager:
+                self.logger.debug(f"Retrieved session manager from global registry for {session_id}")
+                device_udid = session_manager.get_device_udid(session_id)
+                self.logger.debug(f"Session {session_id} resolved via global registry to {device_udid}")
+                
+                # Update our session manager reference for future calls
+                self.session_manager = session_manager
+                return device_udid
+        except ImportError:
+            self.logger.debug("Global registry not available")
+        except Exception as e:
+            self.logger.debug(f"Global registry lookup failed for {session_id}: {e}")
+        
+        # Strategy 3: Try creating a new session manager and see if it can find the session
+        try:
+            self.logger.debug(f"Attempting fallback session discovery for {session_id}")
+            from .session_manager import UnifiedSessionManager
+            fallback_manager = UnifiedSessionManager()
+            
+            if session_id in fallback_manager.sessions:
+                device_udid = fallback_manager.get_device_udid(session_id)
+                self.logger.debug(f"Session {session_id} found via fallback manager: {device_udid}")
+                
+                # Update our session manager reference
+                self.session_manager = fallback_manager
+                return device_udid
+        except Exception as e:
+            self.logger.debug(f"Fallback session discovery failed: {e}")
+        
+        # All strategies failed
+        raise SessionError(f"Session {session_id} not found in any session manager - session may have expired or been terminated")
+    
+    def _looks_like_session_id(self, target: str) -> bool:
+        """Check if target looks like a session ID."""
+        # Session IDs typically have patterns like:
+        # - session_timestamp_hash
+        # - automation_timestamp_hash  
+        # - custom_name_timestamp_hash
+        return ('_' in target and 
+                len(target) > 10 and 
+                (target.startswith(('session_', 'automation_', 'mcp_')) or 
+                 target.count('_') >= 2))
+    
+    def _resolve_target(self, target: Union[str, Dict]) -> str:
+        """
+        Resolve target to device UDID with enhanced session handling.
+        
+        Args:
+            target: Device UDID, session ID, or dict containing device info
+            
+        Returns:
+            str: Device UDID
+            
+        Raises:
+            ValueError: If target format is invalid
+            SessionError: If session resolution fails
+        """
+        if isinstance(target, str):
+            self.logger.debug(f"🔍 Resolving target: {target}")
+            
+            # Check if it looks like a session ID
+            if self._looks_like_session_id(target):
+                self.logger.debug(f"🎯 Target appears to be session ID: {target}")
+                
+                try:
+                    device_udid = self._get_device_udid_from_session(target)
+                    self.logger.debug(f"✅ Resolved session {target} to device {device_udid}")
+                    return device_udid
+                except SessionError as e:
+                    self.logger.error(f"❌ Failed to resolve session {target}: {e}")
+                    raise
+                except Exception as e:
+                    self.logger.error(f"❌ Unexpected error resolving session {target}: {e}")
+                    raise SessionError(f"Failed to resolve session {target}: {e}")
+            
+            # Treat as direct device UDID
+            self.logger.debug(f"🎯 Treating {target} as direct device UDID")
+            return target
+            
+        elif isinstance(target, dict):
+            # Extract UDID from dict
+            udid = target.get('udid', target.get('device_udid', ''))
+            if not udid:
+                raise ValueError(f"No UDID found in target dict: {target}")
+            return udid
+        else:
+            raise ValueError(f"Invalid target type: {type(target)} - {target}")
+    
+    # ═══════════════════════════════════════════════════════════════════════════
     # URL Operations
+    # ═══════════════════════════════════════════════════════════════════════════
     
     def open_url(self, target: Union[str, Dict], url: str) -> None:
         """
@@ -130,7 +266,13 @@ class UnifiedUtilitiesManager(CommandExecutor):
         Raises:
             DeviceNotAvailableError: If device is not available
         """
+        self.logger.info(f"📱 Opening URL: {url}")
+        
+        # Enhanced target resolution
         udid = self._resolve_target(target)
+        self.logger.debug(f"🎯 Target resolved to device UDID: {udid}")
+        
+        # Verify device is available using the resolved UDID
         self._verify_device_available(udid)
         
         # Validate URL
@@ -147,6 +289,7 @@ class UnifiedUtilitiesManager(CommandExecutor):
         else:
             self._open_url_real_device(udid, url)
         
+        self.logger.info(f"✅ Successfully opened URL: {url}")
         print(f"✅ Opened URL: {url}")
     
     def open_scheme(self, target: Union[str, Dict], scheme_name: str) -> None:
@@ -184,7 +327,9 @@ class UnifiedUtilitiesManager(CommandExecutor):
         url = f"app-settings:{bundle_id}"
         self.open_url(target, url)
     
+    # ═══════════════════════════════════════════════════════════════════════════
     # Permission Management
+    # ═══════════════════════════════════════════════════════════════════════════
     
     def get_permissions(self, target: Union[str, Dict], 
                        bundle_id: str) -> List[Permission]:
@@ -221,6 +366,7 @@ class UnifiedUtilitiesManager(CommandExecutor):
             service: Permission service (photos, camera, location, etc.)
             status: Permission status (grant, deny, unset)
         """
+        # Enhanced target resolution
         udid = self._resolve_target(target)
         self._verify_device_available(udid)
         
@@ -274,10 +420,13 @@ class UnifiedUtilitiesManager(CommandExecutor):
         else:
             print("⚠️  Permission reset only supported on simulators")
     
+    # ═══════════════════════════════════════════════════════════════════════════
     # Keychain Operations
+    # ═══════════════════════════════════════════════════════════════════════════
     
     def clear_keychain(self, target: Union[str, Dict]) -> None:
         """Clear device keychain."""
+        # Enhanced target resolution
         udid = self._resolve_target(target)
         self._verify_device_available(udid)
         
@@ -292,7 +441,9 @@ class UnifiedUtilitiesManager(CommandExecutor):
         
         print("✅ Keychain cleared")
     
+    # ═══════════════════════════════════════════════════════════════════════════
     # Network Operations
+    # ═══════════════════════════════════════════════════════════════════════════
     
     def set_network_condition(self, target: Union[str, Dict], 
                              profile: Union[str, NetworkProfile]) -> None:
@@ -328,7 +479,9 @@ class UnifiedUtilitiesManager(CommandExecutor):
         """Clear network conditioning."""
         print("✅ Network conditioning cleared (requires manual configuration)")
     
+    # ═══════════════════════════════════════════════════════════════════════════
     # Device Settings
+    # ═══════════════════════════════════════════════════════════════════════════
     
     def get_device_info(self, target: Union[str, Dict]) -> Dict[str, Any]:
         """Get detailed device information."""
@@ -385,7 +538,9 @@ class UnifiedUtilitiesManager(CommandExecutor):
         else:
             print("⚠️  Device settings modification limited on real devices")
     
+    # ═══════════════════════════════════════════════════════════════════════════
     # Clipboard Operations
+    # ═══════════════════════════════════════════════════════════════════════════
     
     def set_clipboard(self, target: Union[str, Dict], text: str) -> None:
         """Set clipboard content."""
@@ -424,7 +579,9 @@ class UnifiedUtilitiesManager(CommandExecutor):
             print("⚠️  Clipboard operations not supported on real devices via this tool")
             return None
     
+    # ═══════════════════════════════════════════════════════════════════════════
     # App Store Operations
+    # ═══════════════════════════════════════════════════════════════════════════
     
     def open_app_store_page(self, target: Union[str, Dict], app_id: str) -> None:
         """Open App Store page for an app."""
@@ -437,7 +594,9 @@ class UnifiedUtilitiesManager(CommandExecutor):
         url = f"itms-apps://search.itunes.apple.com/WebObjects/MZSearch.woa/wa/search?media=software&term={encoded_query}"
         self.open_url(target, url)
     
+    # ═══════════════════════════════════════════════════════════════════════════
     # Debugging Operations
+    # ═══════════════════════════════════════════════════════════════════════════
     
     def enable_developer_mode(self, target: Union[str, Dict]) -> None:
         """Enable developer mode (simulators only)."""
@@ -481,7 +640,9 @@ class UnifiedUtilitiesManager(CommandExecutor):
         else:
             print("⚠️  iCloud sync trigger only available on simulators")
     
+    # ═══════════════════════════════════════════════════════════════════════════
     # Focus and Window Management
+    # ═══════════════════════════════════════════════════════════════════════════
     
     def focus_simulator(self, target: Union[str, Dict]) -> None:
         """Focus simulator window."""
@@ -503,7 +664,9 @@ class UnifiedUtilitiesManager(CommandExecutor):
         else:
             print("⚠️  Window focus only available for simulators")
     
+    # ═══════════════════════════════════════════════════════════════════════════
     # Utility Methods
+    # ═══════════════════════════════════════════════════════════════════════════
     
     def create_backup(self, target: Union[str, Dict], backup_path: Path) -> None:
         """Create device backup (simulators only)."""
@@ -531,29 +694,16 @@ class UnifiedUtilitiesManager(CommandExecutor):
         """Restore device backup (simulators only)."""
         print("⚠️  Backup restore not implemented - requires careful handling")
     
+    # ═══════════════════════════════════════════════════════════════════════════
     # Helper Methods
-    
-    def _resolve_target(self, target: Union[str, Dict]) -> str:
-        """Resolve target to device UDID."""
-        if isinstance(target, str):
-            # Check if it's a session ID
-            if self.session_manager and target.startswith(('session_', 'automation_')):
-                try:
-                    return self.session_manager.get_device_udid(target)
-                except:
-                    pass
-            # Otherwise assume it's a UDID
-            return target
-        elif isinstance(target, dict):
-            # Extract UDID from dict
-            return target.get('udid', target.get('device_udid', ''))
-        else:
-            raise ValueError(f"Invalid target: {target}")
+    # ═══════════════════════════════════════════════════════════════════════════
     
     def _verify_device_available(self, udid: str):
         """Verify device is available."""
+        self.logger.debug(f"Verifying device availability: {udid}")
         if not self.device_manager.is_device_available(udid):
             raise DeviceNotAvailableError(f"Device not available: {udid}")
+        self.logger.debug(f"Device {udid} is available")
     
     def _is_valid_url(self, url: str) -> bool:
         """Validate URL format."""
@@ -568,14 +718,18 @@ class UnifiedUtilitiesManager(CommandExecutor):
         
         return any(re.match(pattern, url, re.IGNORECASE) for pattern in patterns)
     
+    # ═══════════════════════════════════════════════════════════════════════════
     # Simulator-specific implementations
+    # ═══════════════════════════════════════════════════════════════════════════
     
     def _open_url_simulator(self, udid: str, url: str):
         """Open URL on simulator."""
         try:
+            self.logger.debug(f"Opening URL on simulator {udid}: {url}")
             self.run_command(f"{self.simctl_path} openurl {udid} '{url}'")
+            self.logger.debug(f"Successfully opened URL on simulator")
         except Exception as e:
-            raise DeviceError(f"Failed to open URL: {e}")
+            raise DeviceError(f"Failed to open URL on simulator: {e}")
     
     def _get_permissions_simulator(self, udid: str, bundle_id: str) -> List[Permission]:
         """Get permissions on simulator."""
@@ -670,7 +824,9 @@ class UnifiedUtilitiesManager(CommandExecutor):
         except:
             print("⚠️  Could not set timezone")
     
+    # ═══════════════════════════════════════════════════════════════════════════
     # Real device-specific implementations
+    # ═══════════════════════════════════════════════════════════════════════════
     
     def _open_url_real_device(self, udid: str, url: str):
         """Open URL on real device."""
